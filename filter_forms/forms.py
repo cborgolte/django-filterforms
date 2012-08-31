@@ -91,7 +91,10 @@ CharRangeField = rangefield_factory(forms.CharField)
 
 
 # mapping of non django filter types
-FILTERMETHODS = dict(inner_range=('gte', 'lte'))
+FILTERMETHODS = dict(#interval. min or max value can be omitted.
+                     min_max=('gte', 'lte'),
+                     # open interval
+                     inner_range=('gt', 'lt'))
 
 
 # A list of FieldDescription will be used to setup the filter form
@@ -161,7 +164,7 @@ def filterform_factory(field_descriptions):
                 assert(isinstance(values, (tuple, list)))
                 assert(len(values) == len(filtermethods))
                 return dict(('{0}__{1}'.format(fieldname, filtermethod).rstrip('_'), value)
-                            for (filtermethod, value) in zip(filtermethods, values))
+                            for (filtermethod, value) in zip(filtermethods, values) if value)
             return {'{0}__{1}'.format(fieldname, filtermethods).rstrip('_'): values}
 
         def filter(self, query):
