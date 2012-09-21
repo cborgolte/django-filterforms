@@ -167,16 +167,57 @@ def filterform_factory(field_descriptions):
                             for (filtermethod, value) in zip(filtermethods, values) if value)
             return {'{0}__{1}'.format(fieldname, filtermethods).rstrip('_'): values}
 
-        def filter(self, query):
-            """Performs filtering on a queryset.
-
-            Requires the form to be valid."""
-            if not self.is_valid():
-                raise RuntimeError('You should handle form validation before calling filter()')
+        def get_filter_dict(self, cleaned_data):
+            """Returns the dict one can use as `**kwargs` to filter a queryset."""
             filters = dict()
-            for (fieldname, values) in self.cleaned_data.items():
+            for (fieldname, values) in cleaned_data.iteritems():
                 if values:
                     filters.update(self._field_as_filter(fieldname, values))
-            retval = query.filter(**filters)
+            return filters
+
+        def filter(self, query, cleaned_data=None):
+            """Performs filtering on a queryset.
+
+            If no `cleaned_data` is given the form is required to be valid."""
+            if not cleaned_data and not self.is_valid():
+                raise RuntimeError('You should handle form validation before calling filter()')
+            cleaned_data = cleaned_data or self.cleaned_data
+            filterdict = self.get_filter_dict(cleaned_data)
+            retval = query.filter(**filterdict)
             return retval
+
+        def __unicode__(self):
+            """Return a human readable representation of the search."""
+            if not self.is_valid():
+                return super(self, _FilterForm).__unicode__()
+            filters = self.get_filter_dict(self.cleaned_data)
+            operatormapping = {'__gt': '>',
+                               '__gte': '>=',
+                               '__lt': '<',
+                               '__lte': '<=',
+                               '__contains': _('contains'),
+                               '__range': _('between')}
+            # collect entries for the output. Every formfield with a value is collected
+            entries = {}
+            for (key, value) in filters.iteritems():
+                for (filterstr, operator) in operatormapping.iteritems():
+                    if key.endswith(filterstr):
+                        # remove filterstring to get fieldname
+                        fieldname = key.partition(filterstr)[0]
+                        break
+                else:
+                    operator = '='
+                    fieldname = key
+                fieldlabel = self[fieldname].label
+                if isinstance(value, basestring):
+                    entries[fieldname] = u'{0} {1} "{2}"'.format(fieldlabel, operator, value)
+                elif isinstance(value, list):
+                    entries[fieldname] = u'{0} {1} {2}'.format(fieldlabel, operator, _(' and ').join(u'"{0}"'.format(_val) for _val in value))
+                else:
+                    entries[fieldname] = u'{0} {1} {2}'.format(fieldlabel, operator, value)
+
+            # adapt field ordering from the form
+            retval = u'\n'.join(entries[field.name] for field in self if field.name in entries)
+            return retval
+
     return _FilterForm
