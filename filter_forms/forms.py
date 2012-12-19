@@ -196,6 +196,7 @@ def filterform_factory(field_descriptions):
                                '__lt': '<',
                                '__lte': '<=',
                                '__contains': _('contains'),
+                               '__icontains': _('contains (ignoring case)'),
                                '__range': _('between')}
             # collect entries for the output. Every formfield with a value is collected
             entries = {}
